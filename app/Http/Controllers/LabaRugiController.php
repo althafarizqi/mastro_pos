@@ -87,6 +87,33 @@ class LabaRugiController extends Controller
         $tanggal_awal = $request->input('tanggalAwal');
         $tanggal_akhir = $request->input('tanggalAkhir');
 
+        // $results = Penjualan::leftJoin('detail_penjualans', 'penjualans.id', '=', 'detail_penjualans.penjualan_id')
+        //     ->leftJoin('pelanggans', 'penjualans.pelanggan_id', '=', 'pelanggans.id')
+        //     ->leftJoin('barangs AS barang_penjualan', 'detail_penjualans.barang_id', '=', 'barang_penjualan.id')
+        //     ->leftJoin('detail_pembelians', function ($join) {
+        //         $join->on('detail_penjualans.barang_id', '=', 'detail_pembelians.barang_id')
+        //             ->groupBy('detail_penjualans.barang_id');
+        //     })
+        //     ->leftJoin('barangs AS barang_pembelian', 'detail_pembelians.barang_id', '=', 'barang_pembelian.id')
+        //     ->select(
+        //         'penjualans.id', // tambahkan id penjualan ke dalam SELECT
+        //         'penjualans.tanggal',
+        //         'penjualans.nota_penjualan',
+        //         'penjualans.total_harga',
+        //         'pelanggans.nama AS nama_pelanggan',
+        //         'barang_penjualan.nama AS nama_barang_penjualan',
+        //         'detail_penjualans.jumlah',
+        //         'detail_penjualans.subtotal_harga AS harga_satuan_penjualan',
+        //         DB::raw('AVG(detail_pembelians.harga_satuan) AS harga_satuan_pembelian')
+        //     )
+        //     ->groupBy('penjualans.id', 'penjualans.tanggal', 'penjualans.nota_penjualan', 'penjualans.total_harga', 'pelanggans.nama', 'barang_penjualan.nama', 'detail_penjualans.jumlah', 'detail_penjualans.subtotal_harga'); // tambahkan semua kolom yang muncul di SELECT ke dalam GROUP BY
+
+        // if ($tanggal_awal && $tanggal_akhir) {
+        //     $results->whereBetween('penjualans.tanggal', [$tanggal_awal, $tanggal_akhir]);
+        // }
+
+        // $results = $results->get();
+
         $results = Penjualan::leftJoin('detail_penjualans', 'penjualans.id', '=', 'detail_penjualans.penjualan_id')
             ->leftJoin('pelanggans', 'penjualans.pelanggan_id', '=', 'pelanggans.id')
             ->leftJoin('barangs AS barang_penjualan', 'detail_penjualans.barang_id', '=', 'barang_penjualan.id')
@@ -104,15 +131,17 @@ class LabaRugiController extends Controller
                 'barang_penjualan.nama AS nama_barang_penjualan',
                 'detail_penjualans.jumlah',
                 'detail_penjualans.subtotal_harga AS harga_satuan_penjualan',
-                DB::raw('AVG(detail_pembelians.harga_satuan) AS harga_satuan_pembelian')
+                DB::raw('SUM(detail_pembelians.jumlah) AS total_pembelian'), // hitung total_pembelian
+                DB::raw('SUM(detail_pembelians.subtotal_harga) AS harga_satuan_pembelian'), // hitung harga_satuan_pembelian
+                DB::raw('(SUM(detail_pembelians.subtotal_harga) / NULLIF(SUM(detail_pembelians.jumlah), 0)) AS rasio_harga_pembelian') // hitung rasio harga pembelian
             )
             ->groupBy('penjualans.id', 'penjualans.tanggal', 'penjualans.nota_penjualan', 'penjualans.total_harga', 'pelanggans.nama', 'barang_penjualan.nama', 'detail_penjualans.jumlah', 'detail_penjualans.subtotal_harga'); // tambahkan semua kolom yang muncul di SELECT ke dalam GROUP BY
 
-        if ($tanggal_awal && $tanggal_akhir) {
-            $results->whereBetween('penjualans.tanggal', [$tanggal_awal, $tanggal_akhir]);
-        }
+            if ($tanggal_awal && $tanggal_akhir) {
+                $results->whereBetween('penjualans.tanggal', [$tanggal_awal, $tanggal_akhir]);
+            }
 
-        $results = $results->get();
+            $results = $results->get();
 
         if ($tanggal_awal && $tanggal_akhir != null) {
             return Excel::download(new ExportLabaRugi($results, $tanggal_awal, $tanggal_akhir), 'LabaRugi_' . Carbon::parse($tanggal_awal)->translatedFormat('dMY') . '_' . Carbon::parse($tanggal_akhir)->translatedFormat('dMY') . '.xlsx');
